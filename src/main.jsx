@@ -58,23 +58,95 @@ function FormulaPage({ onOpen }) { const [category,setCategory]=useState('全部
 function PageHeading({ title, description }) { return <><div className="breadcrumb"><a href="#/home">首页</a><span>/</span>{title}</div><div className="page-heading"><span className="eyebrow">LEARN BY DOING</span><h1>{title}</h1><p>{description}</p></div></>; }
 function Field({ label, value, onChange, unit, min=0, max=1e12, step='any' }) { return <label className="field"><span>{label}</span><div><input type="number" value={value} min={min} max={max} step={step} required onChange={e=>onChange(e.target.value===''?'':Number(e.target.value))}/><span>{unit}</span></div></label>; }
 function FormulaModal({ item, close }) { const [values,setValues]=useState(item.fields.map(f=>f[1])); const limit=unit=>unit==='元'?1e12:100; const valid=values.every((v,i)=>v!==''&&Number.isFinite(v)&&v>=0&&v<=limit(item.fields[i][2])); const result=valid?item.calc(values):NaN; useEffect(()=>{const handler=e=>{if(e.key==='Escape')close();};document.addEventListener('keydown',handler);const previous=document.activeElement;document.getElementById('modal-close')?.focus();return()=>{document.removeEventListener('keydown',handler);previous?.focus();};},[]); return <div className="modal-backdrop" onClick={close}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" onClick={e=>e.stopPropagation()} onKeyDown={e=>{if(e.key==='Tab'){const focusable=e.currentTarget.querySelectorAll('button,input');const first=focusable[0],last=focusable[focusable.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}}}><button id="modal-close" className="close" aria-label="关闭公式" onClick={close}>×</button><span className={`icon-box ${item.color}`}><Icon name={item.icon}/></span><h2 id="modal-title">{item.title}</h2><p>{item.description}</p><div className="equation big">{item.formula}</div><div className="modal-fields">{item.fields.map(([label,,unit],i)=><Field key={label} label={label} unit={unit} max={limit(unit)} value={values[i]} onChange={v=>setValues(a=>a.map((x,k)=>k===i?v:x))}/>)}</div><div className="mini-result" aria-live="polite"><span>{item.result}</span><strong>{Number.isFinite(result)?money(result):'请输入有效数值'} <small>{Number.isFinite(result)?item.unit||'元':''}</small></strong></div><p className="modal-note"><Icon name="info" size={17}/>{item.note}</p></section></div>; }
-function Chart({ series, labels=['现在','未来'], legend='账户总额' }) { const max=Math.max(...series.map(s=>Math.max(s.value,s.base||0)),1); const pos=(v,i)=>`${44+i/(series.length-1)*556},${180-v/max*145}`; const line=series.map((s,i)=>pos(s.value,i)).join(' '); const base=series.map((s,i)=>pos(s.base||0,i)).join(' ');return <div className="chart"><div className="chart-heading"><b>看见时间的力量</b><span><i/>{legend}<i className="base"/>投入本金</span></div><svg viewBox="0 0 640 220" role="img" aria-label={`${legend}随时间的变化趋势`}><defs><linearGradient id="chart-fill" x1="0" y1="0" x2="0" y2="1"><stop stopColor="#579578" stopOpacity=".25"/><stop offset="1" stopColor="#579578" stopOpacity=".02"/></linearGradient></defs>{[0,1,2,3].map(i=><g key={i}><line x1="44" x2="600" y1={35+i*48.3} y2={35+i*48.3} stroke="var(--border)" strokeDasharray="4 4"/><text x="0" y={39+i*48.3}>{money(max*(3-i)/3/10000)}万</text></g>)}<polygon points={`44,180 ${line} 600,180`} fill="url(#chart-fill)"/><polyline points={base} fill="none" stroke="#a6b8ae" strokeWidth="2" strokeDasharray="5 4"/><polyline points={line} fill="none" stroke="#438365" strokeWidth="3" strokeLinejoin="round"/><text x="44" y="208">{labels[0]}</text><text x="600" y="208" textAnchor="end">{labels[1]}</text></svg></div>; }
+function Chart({ series, labels=['现在','未来'], legend='账户总额', baseLegend='投入本金' }) {
+  const max = Math.max(...series.map(s => Math.max(s.value, s.base || 0)), 1);
+  const min = Math.min(...series.map(s => Math.min(s.value, s.base || 0)), 0);
+  const y = value => 180 - (value - min) / (max - min) * 145;
+  const pos = (value, i) => `${44 + i / (series.length - 1) * 556},${y(value)}`;
+  const line = series.map((s, i) => pos(s.value, i)).join(' ');
+  const base = series.map((s, i) => pos(s.base || 0, i)).join(' ');
+  return <div className="chart">
+    <div className="chart-heading"><b>看见时间的力量</b><span><i/>{legend}<i className="base"/>{baseLegend}</span></div>
+    <svg viewBox="0 0 640 220" role="img" aria-label={`${legend}随时间的变化趋势`}>
+      <defs><linearGradient id="chart-fill" x1="0" y1="0" x2="0" y2="1"><stop stopColor="#579578" stopOpacity=".25"/><stop offset="1" stopColor="#579578" stopOpacity=".02"/></linearGradient></defs>
+      {[0,1,2,3].map(i => <g key={i}><line x1="44" x2="600" y1={35+i*48.3} y2={35+i*48.3} stroke="var(--border)" strokeDasharray="4 4"/><text x="0" y={39+i*48.3}>{money((max-(max-min)*i/3)/10000)}万</text></g>)}
+      {min < 0 && <line x1="44" x2="600" y1={y(0)} y2={y(0)} stroke="var(--muted)" strokeDasharray="3 3"/>}
+      <polygon points={`44,${y(0)} ${line} 600,${y(0)}`} fill="url(#chart-fill)"/>
+      <polyline points={base} fill="none" stroke="#a6b8ae" strokeWidth="2" strokeDasharray="5 4"/>
+      <polyline points={line} fill="none" stroke="#438365" strokeWidth="3" strokeLinejoin="round"/>
+      <text x="44" y="208">{labels[0]}</text><text x="600" y="208" textAnchor="end">{labels[1]}</text>
+    </svg>
+  </div>;
+}
 function Calculator({ type }) {
   const tool=tools.find(t=>t.id===type);
-  const initial=type==='compound'?{principal:10000,rate:5,years:10,frequency:12}:type==='savings'?{principal:10000,deposit:2000,rate:3,target:100000}:type==='mortgage'?{principal:1000000,rate:3.5,years:30,method:'annuity'}:{future:100000,rate:5,years:10};
+  const initial=type==='compound'?{principal:10000,rate:5,years:10,frequency:12,investment:0,investmentFrequency:12}:type==='savings'?{principal:10000,deposit:2000,rate:3,target:100000}:type==='mortgage'?{principal:1000000,rate:3.5,years:30,method:'annuity'}:{future:100000,rate:5,years:10};
   const [values,setValues]=useState(initial); const [table,setTable]=useState(false); const [showAll,setShowAll]=useState(false);
   const set=(key,value)=>setValues(v=>({...v,[key]:value}));
-  const valid=Object.entries(values).every(([k,v])=>k==='method'||(v!==''&&Number.isFinite(v)&&v>=0&&v<=(k==='years'?100:k==='rate'?100:1e12)))&&(type!=='mortgage'||(values.years>=1&&Number.isInteger(values.years)));
+  const minimum = key => type === 'compound' ? key === 'rate' ? -100 : ['principal','investment'].includes(key) ? -1e12 : 0 : 0;
+  const valid=Object.entries(values).every(([k,v])=>k==='method'||(v!==''&&Number.isFinite(v)&&v>=minimum(k)&&v<=(k==='years'?100:k==='rate'?100:1e12)))&&(type!=='mortgage'||(values.years>=1&&Number.isInteger(values.years)))&&(type!=='compound'||values.rate>-100);
   let total=0, invested=0, months=0, loan=null, series=[];
   if(valid){
-    if(type==='compound'){invested=values.principal;total=compound(values.principal,values.rate/100,values.years,values.frequency);series=Array.from({length:21},(_,i)=>({value:compound(values.principal,values.rate/100,values.years*i/20,values.frequency),base:invested}));}
+    if(type==='compound'){
+      const netInvestment = years => values.principal + values.investment * Math.floor(years * values.investmentFrequency + 1e-10);
+      const balance = years => compound(values.principal,values.rate/100,years,values.frequency,values.investment,values.investmentFrequency);
+      invested=netInvestment(values.years);
+      total=balance(values.years);
+      series=Array.from({length:21},(_,i)=>({value:balance(values.years*i/20),base:netInvestment(values.years*i/20)}));
+    }
     if(type==='savings'){months=savingsMonths(values.principal,values.deposit,values.rate/100,values.target);const n=Math.min(months,12000);const r=values.rate/1200;const balance=t=>values.principal*(1+r)**t+(r===0?values.deposit*t:values.deposit*Math.expm1(t*Math.log1p(r))/r);invested=values.principal+values.deposit*n;total=balance(n);series=Array.from({length:21},(_,i)=>({value:balance(n*i/20),base:values.principal+values.deposit*n*i/20}));}
     if(type==='mortgage'){loan=mortgage(values.principal,values.rate/100,values.years,values.method);total=loan.total;invested=values.principal;series=Array.from({length:21},(_,i)=>({value:i===0?values.principal:loan.rows[Math.min(loan.rows.length-1,Math.ceil(loan.rows.length*i/20)-1)].remaining,base:0}));}
     if(type==='present'){total=presentValue(values.future,values.rate/100,values.years);invested=values.future;series=Array.from({length:21},(_,i)=>({value:presentValue(values.future,values.rate/100,values.years*i/20),base:0}));}
   }
   const finite=valid&&Number.isFinite(total)&&!(type==='savings'&&(!Number.isFinite(months)||months>12000));
-  const field=(key,label,unit,extra={})=><Field label={label} unit={unit} value={values[key]} onChange={v=>set(key,v)} {...extra}/>;
-  return <><PageHeading title={tool.title} description={tool.description}/><div className="calculator-layout"><section className="input-panel"><div className="panel-title"><span className={`icon-box ${tool.color}`}><Icon name={tool.icon}/></span><h2>设定你的计划</h2></div>{type!=='present'&&field('principal',type==='mortgage'?'贷款本金':'初始本金','元')}{type==='present'&&field('future','未来金额','元')}{type==='savings'&&field('deposit','每月存款','元')}{type==='savings'&&field('target','目标金额','元')}{field('rate',type==='present'?'年折现率':'年利率','%',{max:100})}{type!=='savings'&&field('years',type==='mortgage'?'贷款期限':'时间','年',{max:100,min:type==='mortgage'?1:0,step:type==='mortgage'?1:'any'})}{type==='compound'&&<label className="field"><span>复利频率</span><select value={values.frequency} onChange={e=>set('frequency',Number(e.target.value))}><option value="12">每月复利</option><option value="4">每季度复利</option><option value="1">每年复利</option><option value="365">每日复利（365 天）</option></select></label>}{type==='mortgage'&&<label className="field"><span>还款方式</span><select value={values.method} onChange={e=>set('method',e.target.value)}><option value="annuity">等额本息 · 每月还款相同</option><option value="equal">等额本金 · 每月还款递减</option></select></label>}<Button variant="outlined" onClick={()=>setValues(initial)}>恢复默认值</Button><p className="input-hint"><Icon name="info" size={16}/> 调整数值，结果即刻更新。金额以人民币计。</p></section><section className="output-panel" aria-live="polite"><span className="eyebrow">YOUR RESULT</span><h2>{type==='compound'?'未来的账户总额':type==='savings'?'预计达成目标需要':type==='mortgage'?'首月还款金额':'这笔钱今天的价值'}</h2>{finite?<><div className="result-number">{type==='savings'?<>{Math.floor(months/12)>0&&<>{Math.floor(months/12)}<small>年</small></>}{months%12}<small>个月</small></>:<><small>¥</small>{money(type==='mortgage'?loan.payment:total)}</>}</div><div className="result-stats"><div><span>{type==='present'?'未来金额':type==='mortgage'?'还款总额':'累计投入'}</span><b>¥ {money(type==='mortgage'?total:invested)}</b></div><div><span>{type==='present'?'折现差额':type==='mortgage'?'利息总额':'获得利息'}</span><b className="green-text">¥ {money(type==='present'?invested-total:total-invested)}</b></div></div><Chart series={series} legend={type==='mortgage'?'剩余贷款':type==='present'?'折算现值':'账户总额'} labels={['现在',type==='savings'?`${months} 个月后`:`${values.years} 年后`]}/>{type==='savings'&&<p className="result-note">{months===0?'你已经达到储蓄目标。':`按月末存入、月复利计算，达成时账户约有 ¥ ${money(total)}。`}</p>}{type==='mortgage'&&<><Button variant="text" onClick={()=>setTable(!table)}>{table?'收起':'查看'}还款明细 <Icon name="arrow" size={17}/></Button>{table&&<><div className="table-wrap"><table><thead><tr><th>期数</th><th>月供</th><th>本金</th><th>利息</th><th>剩余本金</th></tr></thead><tbody>{(showAll?loan.rows:loan.rows.slice(0,12)).map(row=><tr key={row.month}><td>{row.month}</td>{['payment','capital','interest','remaining'].map(k=><td key={k}>{money(row[k])}</td>)}</tr>)}</tbody></table></div>{loan.rows.length>12&&<Button variant="text" onClick={()=>setShowAll(!showAll)}>{showAll?'仅显示前 12 期':`显示全部 ${loan.rows.length} 期`}</Button>}</>}</>}</>:<div className="invalid"><Icon name="info" size={30}/><h3>{!valid?'请检查输入数值':months>12000?'当前计划无法在 1,000 年内达到目标':'结果超出计算范围'}</h3><p>{!valid?'请输入非负金额、0–100% 的利率和不超过 100 年的期限；房贷期限需为正整数。':'试着增加每月存款，或调整目标和其他参数。'}</p></div>}</section></div><div className="explanation"><Icon name="book"/><div><h3>这个结果，怎么理解？</h3><p>{type==='compound'?'复利是“利息也会生息”。这里年利率是名义年利率，每期利率 = 年利率 ÷ 每年复利次数；未来价值 = 本金 × (1 + 每期利率) 的总期数次方。时间越长，复利与单利的差别越明显。':type==='savings'?'假设年利率固定，每月先计息，再于月末存入固定金额。月利率 = 年利率 ÷ 12；下月余额 = 本月余额 × (1 + 月利率) + 每月存款。结果向上取整到完整月份。':type==='mortgage'?'等额本息每月还款相同，前期利息占比较高；等额本金每月偿还本金相同，月供逐渐减少。计算使用固定年利率 ÷ 12 作为月利率，不包括提前还款、手续费、税费及利率变动。':'现值反映未来现金在今天的价值。现值 = 未来金额 ÷ (1 + 年折现率) 的年数次方。折现率可以代表机会成本；这不是对未来收益的预测。'}</p></div></div></>;
+  const field=(key,label,unit,extra={})=><Field label={label} unit={unit} min={minimum(key)} value={values[key]} onChange={v=>set(key,v)} {...extra}/>;
+  return <>
+    <PageHeading title={tool.title} description={tool.description}/>
+    <div className="calculator-layout">
+      <section className="input-panel">
+        <div className="panel-title"><span className={`icon-box ${tool.color}`}><Icon name={tool.icon}/></span><h2>设定你的计划</h2></div>
+        {type!=='present'&&field('principal',type==='mortgage'?'贷款本金':'初始本金','元')}
+        {type==='present'&&field('future','未来金额','元')}
+        {type==='compound'&&<>
+          <label className="field"><span>定期投资频率</span><select value={values.investmentFrequency} onChange={e=>set('investmentFrequency',Number(e.target.value))}><option value="12">每月投资 · 月末投入</option><option value="1">每年投资 · 年末投入</option></select></label>
+          {field('investment',values.investmentFrequency===12?'每月投资金额':'每年投资金额','元')}
+          <p className="investment-hint">正数表示投入，负数表示定期取出；设为 0 表示不追加投资。</p>
+        </>}
+        {type==='savings'&&field('deposit','每月存款','元')}
+        {type==='savings'&&field('target','目标金额','元')}
+        {field('rate',type==='present'?'年折现率':'年利率','%',{max:100})}
+        {type!=='savings'&&field('years',type==='mortgage'?'贷款期限':'时间','年',{max:100,min:type==='mortgage'?1:0,step:type==='mortgage'?1:'any'})}
+        {type==='compound'&&<label className="field"><span>复利频率</span><select value={values.frequency} onChange={e=>set('frequency',Number(e.target.value))}><option value="12">每月复利</option><option value="4">每季度复利</option><option value="1">每年复利</option><option value="365">每日复利（365 天）</option></select></label>}
+        {type==='mortgage'&&<label className="field"><span>还款方式</span><select value={values.method} onChange={e=>set('method',e.target.value)}><option value="annuity">等额本息 · 每月还款相同</option><option value="equal">等额本金 · 每月还款递减</option></select></label>}
+        <Button variant="outlined" onClick={()=>setValues(initial)}>恢复默认值</Button>
+        <p className="input-hint"><Icon name="info" size={16}/> 调整数值，结果即刻更新。金额以人民币计。</p>
+      </section>
+      <section className="output-panel" aria-live="polite">
+        <span className="eyebrow">YOUR RESULT</span>
+        <h2>{type==='compound'?'未来的账户总额':type==='savings'?'预计达成目标需要':type==='mortgage'?'首月还款金额':'这笔钱今天的价值'}</h2>
+        {finite ? <>
+          <div className="result-number">{type==='savings'?<>{Math.floor(months/12)>0&&<>{Math.floor(months/12)}<small>年</small></>}{months%12}<small>个月</small></>:<><small>¥</small>{money(type==='mortgage'?loan.payment:total)}</>}</div>
+          <div className="result-stats">
+            <div><span>{type==='present'?'未来金额':type==='mortgage'?'还款总额':type==='compound'?'累计净投入':'累计投入'}</span><b>¥ {money(type==='mortgage'?total:invested)}</b></div>
+            <div><span>{type==='present'?'折现差额':type==='mortgage'?'利息总额':type==='compound'?'累计收益 / 亏损':'获得利息'}</span><b className="green-text">¥ {money(type==='present'?invested-total:total-invested)}</b></div>
+          </div>
+          <Chart series={series} legend={type==='mortgage'?'剩余贷款':type==='present'?'折算现值':'账户总额'} baseLegend={type==='compound'?'累计净投入':'投入本金'} labels={['现在',type==='savings'?`${months} 个月后`:`${values.years} 年后`]}/>
+          {type==='savings'&&<p className="result-note">{months===0?'你已经达到储蓄目标。':`按月末存入、月复利计算，达成时账户约有 ¥ ${money(total)}。`}</p>}
+          {type==='mortgage'&&<>
+            <Button variant="text" onClick={()=>setTable(!table)}>{table?'收起':'查看'}还款明细 <Icon name="arrow" size={17}/></Button>
+            {table&&<>
+              <div className="table-wrap"><table><thead><tr><th>期数</th><th>月供</th><th>本金</th><th>利息</th><th>剩余本金</th></tr></thead><tbody>{(showAll?loan.rows:loan.rows.slice(0,12)).map(row=><tr key={row.month}><td>{row.month}</td>{['payment','capital','interest','remaining'].map(k=><td key={k}>{money(row[k])}</td>)}</tr>)}</tbody></table></div>
+              {loan.rows.length>12&&<Button variant="text" onClick={()=>setShowAll(!showAll)}>{showAll?'仅显示前 12 期':`显示全部 ${loan.rows.length} 期`}</Button>}
+            </>}
+          </>}
+        </> : <div className="invalid">
+          <Icon name="info" size={30}/><h3>{!valid?'请检查输入数值':months>12000?'当前计划无法在 1,000 年内达到目标':'结果超出计算范围'}</h3>
+          <p>{!valid ? type==='compound' ? '本金与投资金额可为负数，绝对值不超过一万亿元；年利率须大于 −100% 且不超过 100%，期限为 0–100 年。' : '请输入非负金额、0–100% 的利率和不超过 100 年的期限；房贷期限需为正整数。' : '试着调整金额、利率或期限。'}</p>
+        </div>}
+      </section>
+    </div>
+    <div className="explanation"><Icon name="book"/><div><h3>这个结果，怎么理解？</h3><p>{type==='compound'?'复利是“利息也会生息”。这里年利率是名义年利率，每期利率 = 年利率 ÷ 每年复利次数。定期投资在月末或年末发生，投资频率与复利频率独立；频率不同时，按相同复利增长因子折算期间收益。不满一个投资周期时不追加投资，已有余额继续计息。负数投资表示取出，负利率表示价值减少；本金与余额允许为负，仍按同一利率计算。累计净投入 = 初始本金 + 已发生的定期投资，累计收益 / 亏损 = 最终余额 − 累计净投入。':type==='savings'?'假设年利率固定，每月先计息，再于月末存入固定金额。月利率 = 年利率 ÷ 12；下月余额 = 本月余额 × (1 + 月利率) + 每月存款。结果向上取整到完整月份。':type==='mortgage'?'等额本息每月还款相同，前期利息占比较高；等额本金每月偿还本金相同，月供逐渐减少。计算使用固定年利率 ÷ 12 作为月利率，不包括提前还款、手续费、税费及利率变动。':'现值反映未来现金在今天的价值。现值 = 未来金额 ÷ (1 + 年折现率) 的年数次方。折现率可以代表机会成本；这不是对未来收益的预测。'}</p></div></div>
+  </>;
 }
 function App() {
   const [page, setPage] = useState(() => location.hash.startsWith('#/') ? location.hash.slice(2) : 'home');
