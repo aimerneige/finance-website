@@ -1,0 +1,9 @@
+{
+  "name": "finance-website",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "dev": "vite --host 0.0.0.0", "build": "vite build", "preview": "vite preview --host 0.0.0.0", "test": "node --test src/finance.test.js" },
+  "dependencies": { "mdui": "^2.1.4", "react": "^19.1.0", "react-dom": "^19.1.0" },
+  "devDependencies": { "vite": "^7.0.0" }
+}
